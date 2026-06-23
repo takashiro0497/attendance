@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>出席登録システム</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;font-size:15px;color:#1a1a1a;background:#f5f5f0;min-height:100vh}
+.wrap{max-width:600px;margin:0 auto;padding:1.5rem 1rem}
+.tabs{display:flex;background:#fff;border-radius:10px;padding:4px;margin-bottom:1.25rem;gap:4px}
+.tab{flex:1;padding:9px;cursor:pointer;font-size:14px;color:#666;border-radius:8px;text-align:center;border:none;background:transparent}
+.tab.active{background:#1a1a1a;color:#fff;font-weight:500}
+.page{display:none}.page.active{display:block}
+.card{background:#fff;border-radius:12px;padding:1.25rem;margin-bottom:1rem;border:0.5px solid #e5e5e0}
+h2{font-size:13px;color:#888;margin-bottom:.75rem;font-weight:400;letter-spacing:.05em;text-transform:uppercase}
+label{font-size:13px;color:#666;display:block;margin-bottom:5px}
+input[type=text],input[type=time],input[type=date],textarea{width:100%;padding:9px 12px;border:0.5px solid #ddd;border-radius:8px;font-size:14px;color:#1a1a1a;background:#fff;font-family:inherit}
+input:focus,textarea:focus{outline:none;border-color:#1a1a1a}
+input:disabled{background:#f9f9f9;color:#999}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row>input{flex:1}
+button{padding:9px 18px;border:0.5px solid #ccc;border-radius:8px;background:#fff;color:#1a1a1a;cursor:pointer;font-size:14px}
+button:active{opacity:.75}
+.btn-p{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.btn-s{background:#f5f5f0;border-color:#ddd;font-size:13px;padding:8px 14px}
+.status{padding:14px;border-radius:8px;font-size:14px;font-weight:500;margin-top:1rem;text-align:center}
+.s-present{background:#EAF3DE;color:#3B6D11}
+.s-late{background:#FAEEDA;color:#854F0B}
+.s-absent{background:#FCEBEB;color:#A32D2D}
+.s-dup{background:#EEEDFE;color:#534AB7}
+.s-info{background:#f5f5f0;color:#666}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1rem}
+.stat{background:#f5f5f0;border-radius:8px;padding:.75rem;text-align:center}
+.stat-n{font-size:24px;font-weight:500}
+.stat-l{font-size:12px;color:#888;margin-top:2px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;color:#888;border-bottom:0.5px solid #eee;font-size:12px;font-weight:400}
+td{padding:9px 10px;border-bottom:0.5px solid #f0f0f0}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
+.b-p{background:#EAF3DE;color:#3B6D11}
+.b-l{background:#FAEEDA;color:#854F0B}
+#qr-section{display:none;margin-top:1.25rem;text-align:center}
+#qr-img{width:200px;height:200px;border-radius:8px;border:0.5px solid #eee}
+.url-box{font-size:11px;background:#f5f5f0;padding:8px 10px;border-radius:8px;word-break:break-all;color:#555;margin-top:.75rem;text-align:left;line-height:1.6}
+.foot{display:flex;gap:8px;margin-top:1rem;flex-wrap:wrap}
+.sync-box{background:#f5f5f0;border-radius:8px;padding:1rem;margin-top:.75rem}
+.sync-box p{font-size:13px;color:#666;margin-bottom:.5rem}
+textarea{height:80px;font-size:11px;font-family:monospace;resize:vertical}
+.tip{font-size:12px;color:#aaa;margin-top:.4rem}
+details{margin-top:.75rem}
+summary{font-size:13px;color:#666;cursor:pointer;padding:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('student')">学生</button>
+    <button class="tab" onclick="switchTab('teacher')">教員</button>
+  </div>
+
+  <!-- 学生画面 -->
+  <div id="page-student" class="page active">
+    <div class="card">
+      <div style="font-size:13px;color:#888;margin-bottom:4px">授業</div>
+      <div style="font-size:18px;font-weight:500" id="disp-name">—</div>
+      <div style="font-size:13px;color:#888;margin-top:4px" id="disp-time">QRコードを読み込んでアクセスしてください</div>
+    </div>
+    <div class="card">
+      <label>学籍番号</label>
+      <div class="row">
+        <input type="text" id="student-id" placeholder="例: 2024001" maxlength="20">
+        <button class="btn-p" onclick="submitAttendance()">登録</button>
+      </div>
+      <div id="student-status" class="status s-info" style="display:none"></div>
+    </div>
+    <div style="font-size:12px;color:#aaa;text-align:center">1端末につき1回のみ登録可能</div>
+  </div>
+
+  <!-- 教員画面 -->
+  <div id="page-teacher" class="page">
+    <h2>授業設定 / QRコード生成</h2>
+    <div class="card">
+      <div class="grid2">
+        <div><label>授業名</label><input type="text" id="class-name" placeholder="デザイン基礎A"></div>
+        <div><label>日付</label><input type="date" id="class-date"></div>
+      </div>
+      <div class="grid2">
+        <div><label>開始時刻</label><input type="time" id="class-start" value="09:00"></div>
+        <div><label>終了時刻</label><input type="time" id="class-end" value="10:30"></div>
+      </div>
+      <button class="btn-p" onclick="generateQR()">QRコード生成</button>
+      <div id="qr-section">
+        <img id="qr-img" src="" alt="QRコード" onerror="this.style.display='none'">
+        <div class="url-box" id="qr-url-text"></div>
+      </div>
+    </div>
+
+    <h2>出席記録</h2>
+    <div class="grid3">
+      <div class="stat"><div class="stat-n" id="cnt-p" style="color:#3B6D11">0</div><div class="stat-l">出席</div></div>
+      <div class="stat"><div class="stat-n" id="cnt-l" style="color:#854F0B">0</div><div class="stat-l">遅刻</div></div>
+      <div class="stat"><div class="stat-n" id="cnt-t">0</div><div class="stat-l">合計</div></div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table>
+        <thead><tr><th>学籍番号</th><th>登録時刻</th><th>状態</th></tr></thead>
+        <tbody id="att-body"><tr><td colspan="3" style="color:#bbb;text-align:center;padding:2rem">記録なし</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="foot">
+      <button class="btn-p" onclick="exportCSV()">CSV出力</button>
+      <button class="btn-s" onclick="showExport()">データをコピー（他ブラウザへ転送）</button>
+      <button onclick="clearAll()" style="color:#aaa;font-size:13px">クリア</button>
+    </div>
+
+    <!-- データ転送エリア -->
+    <div id="export-area" class="card" style="display:none;margin-top:1rem">
+      <h2>他のブラウザ / PCへデータ転送</h2>
+      <p style="font-size:13px;color:#555;margin-bottom:.75rem">
+        ① 下のテキストを全選択してコピー<br>
+        ② 別のブラウザでこのページを開き「教員」タブ →「データを貼り付けて読込」に貼り付け
+      </p>
+      <textarea id="export-text" readonly onclick="this.select()"></textarea>
+      <button class="btn-s" style="margin-top:.5rem" onclick="copyData()">コピー</button>
+      <div id="copy-msg" style="font-size:12px;color:#3B6D11;margin-top:.4rem;display:none">コピーしました ✓</div>
+    </div>
+
+    <details style="margin-top:.75rem">
+      <summary>データを貼り付けて読込（他ブラウザからの転送）</summary>
+      <div class="sync-box">
+        <p>上記でコピーしたテキストをここに貼り付けて「読込」を押してください。既存の記録にマージされます。</p>
+        <textarea id="import-text" placeholder="ここにテキストを貼り付け"></textarea>
+        <div style="display:flex;gap:8px;margin-top:.5rem">
+          <button class="btn-p" onclick="importData()">読込</button>
+        </div>
+        <div id="import-msg" style="font-size:12px;margin-top:.4rem;display:none"></div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script>
+const RK='att_rec', DK='att_dev';
+const getRec=()=>{try{return JSON.parse(localStorage.getItem(RK)||'[]')}catch{return[]}};
+const saveRec=r=>localStorage.setItem(RK,JSON.stringify(r));
+const getDev=()=>{try{return JSON.parse(localStorage.getItem(DK)||'{}')}catch{return{}}};
+const saveDev=d=>localStorage.setItem(DK,JSON.stringify(d));
+
+function fingerprint(){
+  const s=[navigator.userAgent,navigator.language,screen.width+'x'+screen.height,screen.colorDepth,navigator.hardwareConcurrency||''].join('|');
+  let h=0;for(let i=0;i<s.length;i++)h=Math.imul(31,h)+s.charCodeAt(i)|0;
+  return Math.abs(h).toString(36);
+}
+const FP=fingerprint();
+
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['student','teacher'][i]===t));
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  document.getElementById('page-'+t).classList.add('active');
+  if(t==='teacher')refreshTable();
+}
+
+let cls=null;
+function today(){return new Date().toISOString().slice(0,10)}
+
+function parseURL(){
+  const p=new URLSearchParams(location.search);
+  const id=p.get('c');
+  if(!id)return;
+  cls={id,name:decodeURIComponent(p.get('n')||'授業'),date:p.get('d')||today(),start:p.get('s')||'09:00',end:p.get('e')||'10:30'};
+  document.getElementById('disp-name').textContent=cls.name;
+  document.getElementById('disp-time').textContent=cls.date+' '+cls.start+'〜'+cls.end;
+}
+
+function judge(s,e){
+  const now=new Date();
+  const[sh,sm]=s.split(':').map(Number);
+  const[eh,em]=e.split(':').map(Number);
+  const st=new Date(now);st.setHours(sh,sm,0,0);
+  const en=new Date(now);en.setHours(eh,em,0,0);
+  const gr=new Date(st.getTime()+10*60000);
+  if(now<st||now>en)return'absent';
+  return now<=gr?'present':'late';
+}
+
+function submitAttendance(){
+  const sid=document.getElementById('student-id').value.trim();
+  const el=document.getElementById('student-status');
+  if(!sid)return show(el,'学籍番号を入力してください','s-info');
+  if(!cls)return show(el,'QRコードから正しいURLでアクセスしてください','s-info');
+  const dev=getDev(),key=cls.id+'_'+FP;
+  if(dev[key])return show(el,'この端末からはすでに登録済みです','s-dup');
+  const status=judge(cls.start,cls.end);
+  const t=new Date().toTimeString().slice(0,5);
+  if(status==='absent')return show(el,'授業時間外のため登録できません','s-absent');
+  const rec=getRec();
+  rec.push({classId:cls.id,className:cls.name,date:cls.date,studentId:sid,time:t,status});
+  saveRec(rec);dev[key]=t;saveDev(dev);
+  document.getElementById('student-id').disabled=true;
+  show(el,status==='present'?'✓ 出席登録完了（'+t+'）':'⚠ 遅刻として登録されました（'+t+'）',status==='present'?'s-present':'s-late');
+}
+function show(el,msg,c){el.textContent=msg;el.className='status '+c;el.style.display='block'}
+
+function generateQR(){
+  const name=document.getElementById('class-name').value||'授業';
+  const date=document.getElementById('class-date').value||today();
+  const start=document.getElementById('class-start').value;
+  const end=document.getElementById('class-end').value;
+  const id='c'+Date.now();
+  const url=location.origin+location.pathname+'?c='+id+'&n='+encodeURIComponent(name)+'&d='+date+'&s='+start+'&e='+end;
+  document.getElementById('qr-url-text').textContent=url;
+  document.getElementById('qr-section').style.display='block';
+  const img=document.getElementById('qr-img');
+  img.style.display='block';
+  img.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data='+encodeURIComponent(url);
+}
+
+function refreshTable(){
+  const rec=getRec();
+  document.getElementById('cnt-p').textContent=rec.filter(r=>r.status==='present').length;
+  document.getElementById('cnt-l').textContent=rec.filter(r=>r.status==='late').length;
+  document.getElementById('cnt-t').textContent=rec.length;
+  const tb=document.getElementById('att-body');
+  if(!rec.length){tb.innerHTML='<tr><td colspan="3" style="color:#bbb;text-align:center;padding:2rem">記録なし</td></tr>';return}
+  tb.innerHTML=rec.map(r=>`<tr><td style="font-family:monospace">${r.studentId}</td><td style="color:#888">${r.date} ${r.time}</td><td><span class="badge ${r.status==='present'?'b-p':'b-l'}">${r.status==='present'?'出席':'遅刻'}</span></td></tr>`).join('');
+}
+
+function exportCSV(){
+  const rec=getRec();
+  if(!rec.length)return alert('記録がありません');
+  const csv='\uFEFF授業名,日付,学籍番号,登録時刻,ステータス\n'+rec.map(r=>[r.className,r.date,r.studentId,r.time,r.status==='present'?'出席':'遅刻'].join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='attendance_'+today()+'.csv';a.click();
+}
+
+// ── データ転送 ────────────────────────────────────────
+function showExport(){
+  const rec=getRec();
+  if(!rec.length)return alert('記録がありません');
+  const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(rec))));
+  document.getElementById('export-text').value=encoded;
+  document.getElementById('export-area').style.display='block';
+  document.getElementById('export-text').select();
+}
+
+function copyData(){
+  const ta=document.getElementById('export-text');
+  ta.select();
+  try{
+    navigator.clipboard.writeText(ta.value).then(()=>{showCopyMsg()}).catch(()=>{document.execCommand('copy');showCopyMsg()});
+  }catch{document.execCommand('copy');showCopyMsg()}
+}
+function showCopyMsg(){
+  const m=document.getElementById('copy-msg');m.style.display='block';
+  setTimeout(()=>m.style.display='none',2000);
+}
+
+function importData(){
+  const raw=document.getElementById('import-text').value.trim();
+  const msg=document.getElementById('import-msg');
+  if(!raw){msg.textContent='テキストが空です';msg.style.color='#A32D2D';msg.style.display='block';return}
+  try{
+    const imported=JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if(!Array.isArray(imported))throw new Error();
+    const existing=getRec();
+    // 重複除去（同じclassId+studentIdは上書きしない）
+    const keys=new Set(existing.map(r=>r.classId+'_'+r.studentId));
+    const merged=existing.concat(imported.filter(r=>!keys.has(r.classId+'_'+r.studentId)));
+    saveRec(merged);
+    refreshTable();
+    msg.textContent=`${imported.length}件を読込みました（合計${merged.length}件）`;
+    msg.style.color='#3B6D11';msg.style.display='block';
+    document.getElementById('import-text').value='';
+  }catch{
+    msg.textContent='データの読込に失敗しました。正しいテキストを貼り付けてください。';
+    msg.style.color='#A32D2D';msg.style.display='block';
+  }
+}
+
+function clearAll(){
+  if(!confirm('記録を全削除しますか？'))return;
+  localStorage.removeItem(RK);localStorage.removeItem(DK);
+  refreshTable();
+  document.getElementById('export-area').style.display='none';
+}
+
+document.getElementById('class-date').value=today();
+parseURL();
+</script>
+</body>
+</html>
