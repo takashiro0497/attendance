@@ -210,7 +210,7 @@ function generateQR(){
   const start=document.getElementById('class-start').value;
   const end=document.getElementById('class-end').value;
   const id='c'+Date.now();
-  const url=location.origin+location.pathname+'?c='+id+'&n='+encodeURIComponent(name)+'&d='+date+'&s='+start+'&e='+end;
+  const url=location.origin+location.pathname+'?c='+id+'&n='+encodeURIComponent(name)+'&d='+date+'&s='+encodeURIComponent(start)+'&e='+encodeURIComponent(end);
   document.getElementById('qr-url-text').textContent=url;
   document.getElementById('qr-section').style.display='block';
   const img=document.getElementById('qr-img');
